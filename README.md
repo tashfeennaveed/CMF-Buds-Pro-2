@@ -47,3 +47,15 @@ app and I don't know yet what it exposes to a PC. Quick test:
 2. If Windows volume changes, the dial sends media keys. A global key hook can read those.
 3. If nothing happens, it needs its Bluetooth protocol read directly. Send me
    what Windows shows under Bluetooth devices and Device Manager (Human Interface Devices) and we'll work from there.
+
+## Floating wheel
+
+When the wheel opens with your dial, a round wheel is drawn in the middle of the
+screen on top of other apps. It never takes focus and ignores mouse clicks, so
+shortcuts still go to the app you are working in. Turn it off with "Show wheel
+on screen" under "Use my dial".
+
+It is drawn by the PowerShell helper. If it does not appear, look for a line
+starting with `ERR wheel overlay:` in the left-panel log, or run
+`powershell -ExecutionPolicy Bypass -File dial_bridge.ps1` in a normal PowerShell
+window and read the first lines it prints.

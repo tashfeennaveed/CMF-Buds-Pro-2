@@ -20,9 +20,44 @@ import 'wheel_controller.dart';
 ///                       is zero) -> opens the wheel
 ///  * press, wheel open -> "choose"; the flip is undone so music is unchanged
 class LiveDial extends ChangeNotifier {
-  LiveDial({required this.wheel});
+  LiveDial({required this.wheel}) {
+    wheel.addListener(_syncOverlay);
+  }
 
   final WheelController wheel;
+
+  /// Whether the wheel is also drawn on screen, on top of other apps.
+  bool showOverlay = true;
+  String _sentItems = '';
+  String _sentState = '';
+
+  void setOverlay(bool value) {
+    showOverlay = value;
+    _syncOverlay();
+    notifyListeners();
+  }
+
+  String _clean(String s) => s.replaceAll(RegExp(r'[\t\r\n]'), ' ');
+
+  /// Tells the helper what the floating wheel should show. Only changes are
+  /// sent, and these commands are kept out of the on-screen log.
+  void _syncOverlay() {
+    if (!running) return;
+    final open = showOverlay && wheel.open;
+    if (open) {
+      final text =
+          wheel.items.map((e) => '${e.iconKey}\t${_clean(e.label)}').join('\n');
+      if (text != _sentItems) {
+        _sentItems = text;
+        _send('WITEMS ${base64Encode(utf8.encode(text))}', quiet: true);
+      }
+    }
+    final state = open ? '1 ${wheel.selected} ${wheel.engaged ? 1 : 0}' : '0 0 0';
+    if (state != _sentState) {
+      _sentState = state;
+      _send('WSTATE $state', quiet: true);
+    }
+  }
 
   Process? _proc;
   bool running = false;
@@ -73,6 +108,8 @@ class LiveDial extends ChangeNotifier {
       } catch (_) {}
       _cmdFile = cmd;
       _seq = 0;
+      _sentItems = '';
+      _sentState = '';
       log.clear();
 
       final p = await Process.start('powershell.exe', [
@@ -139,9 +176,9 @@ class LiveDial extends ChangeNotifier {
 
   /// Sends "<seq> <COMMAND>" to the helper on stdin and through a file.
   /// The helper ignores a sequence number it has already seen.
-  void _send(String cmd) {
+  void _send(String cmd, {bool quiet = false}) {
     final line = '${++_seq} $cmd';
-    _log('> $line');
+    if (!quiet) _log('> $line');
     try {
       _proc?.stdin.writeln(line);
     } catch (_) {
@@ -157,7 +194,10 @@ class LiveDial extends ChangeNotifier {
 
   void _onLine(String line) {
     final l = line.trim();
-    if (!l.startsWith('STATE') && !l.startsWith('TRACK')) _log('< $l');
+    final noise = l.startsWith('STATE') ||
+        l.startsWith('TRACK') ||
+        (l.startsWith('CMD') && (l.endsWith('WSTATE') || l.endsWith('WITEMS')));
+    if (!noise) _log('< $l');
     if (l == 'READY') {
       status = 'Connected. Press the dial, then press again about a second later, to open the wheel.';
     } else if (l.startsWith('ROT ')) {
@@ -264,6 +304,7 @@ class LiveDial extends ChangeNotifier {
 
   @override
   void dispose() {
+    wheel.removeListener(_syncOverlay);
     _idle?.cancel();
     final p = _proc;
     if (p != null) {

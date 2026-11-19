@@ -232,6 +232,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         color: Palette.muted,
                       ),
                     ),
+                    Row(
+                      children: [
+                        const Text(
+                          'Show wheel on screen',
+                          style: TextStyle(fontSize: 13),
+                        ),
+                        const Spacer(),
+                        Switch(
+                          value: live.showOverlay,
+                          onChanged: live.setOverlay,
+                        ),
+                      ],
+                    ),
                     if (live.log.isNotEmpty)
                       Padding(
                         padding: const EdgeInsets.only(top: 6),
